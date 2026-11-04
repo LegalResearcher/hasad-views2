@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import main
 from processing_state import load_successes
@@ -45,6 +45,18 @@ class BatchProcessingTests(unittest.TestCase):
         self.assertEqual(main.run_browser_send(sender, selected), 0)
         self.assertEqual(sender.calls, batch)
         self.assertEqual(main.read_lines(main.LINKS_PATH), [])
+
+    def test_fetch_links_returns_newest_first(self):
+        response = Mock(
+            status_code=200,
+            text="/hasadalyoum/26714 /hasadalyoum/26716 /hasadalyoum/26715",
+        )
+        with patch("main.requests.get", return_value=response):
+            self.assertEqual(main.fetch_links(), [
+                "https://t.me/hasadalyoum/26716",
+                "https://t.me/hasadalyoum/26715",
+                "https://t.me/hasadalyoum/26714",
+            ])
 
     def test_main_processes_queued_links_before_fetching_new_posts(self):
         pending = [
@@ -136,6 +148,25 @@ class BatchProcessingTests(unittest.TestCase):
         with patch.object(main, "_send_account") as send:
             self.assertEqual(main.run_previous_links_until_five(accounts, self.state), 0)
             send.assert_not_called()
+
+    def test_previous_links_processes_latest_two_batches_newest_first(self):
+        processed = [
+            f"https://t.me/hasadalyoum/{number}"
+            for number in range(1, 13)
+        ]
+        with open(os.path.join(self.state, "processed_links.txt"), "w", encoding="utf-8") as file:
+            file.write("\n".join(processed) + "\n")
+        accounts = [(number, f"u{number}", f"p{number}") for number in range(1, 6)]
+        expected = [f"https://t.me/hasadalyoum/{number}" for number in range(12, 2, -1)]
+
+        def all_accounts_succeeded(account, links):
+            return [(selected, "ok") for selected in links]
+
+        with patch.object(main, "_send_account", side_effect=all_accounts_succeeded) as send:
+            self.assertEqual(main.run_previous_links_until_five(accounts, self.state), 0)
+
+        self.assertEqual(send.call_count, 5)
+        self.assertTrue(all(call.args[1] == expected for call in send.call_args_list))
 
 
 if __name__ == "__main__":

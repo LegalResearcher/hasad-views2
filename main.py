@@ -24,6 +24,8 @@ LINKS_PATH = os.path.join(STATE_DIR, "telegram_links.txt")
 PROCESSED_PATH = os.path.join(STATE_DIR, "processed_links.txt")
 TARGET_CHANNEL = "hasadalyoum"
 ACCOUNT_COUNT = 5
+RETRY_LINKS_PER_BATCH = 5
+RETRY_BATCH_COUNT = 2
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
@@ -72,7 +74,7 @@ def fetch_links():
         raise RuntimeError(f"Telegram returned HTTP {response.status_code}")
     ids = sorted({int(value) for value in re.findall(
         rf"/{re.escape(TARGET_CHANNEL)}/(\d+)", response.text
-    )})
+    )}, reverse=True)
     return [f"https://t.me/{TARGET_CHANNEL}/{number}" for number in ids]
 
 
@@ -210,13 +212,21 @@ def run_previous_links_until_five(accounts, state_dir=None):
         list(reversed(read_lines(processed_path)))
         + list(reversed(read_lines(queue_path)))
     ))
-    eligible = [link for link in all_links
+    all_links = [link for link in all_links if re.fullmatch(
+        rf"https://t\.me/{re.escape(TARGET_CHANNEL)}/\d+", link
+    )]
+    all_links.sort(key=lambda link: int(link.rsplit("/", 1)[1]), reverse=True)
+    latest_two_batches = all_links[:RETRY_LINKS_PER_BATCH * RETRY_BATCH_COUNT]
+    eligible = [link for link in latest_two_batches
                 if can_process(link, state_dir, successes, attempts)]
     if not eligible:
         log("💤 لا توجد روابط سابقة مؤهلة للدفع.")
         return 0
-    links = eligible[:5]
-    log(f"🔁 إعادة محاولة {len(links)} روابط سابقة بالحسابات الخمسة بالتوازي.")
+    links = eligible
+    log(
+        f"🔁 إعادة محاولة {len(links)} روابط مؤهلة من أحدث دفعتين "
+        "بالحسابات الخمسة بالتوازي."
+    )
     return run_all_accounts(links, accounts, state_dir=state_dir)
 
 
