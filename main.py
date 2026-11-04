@@ -227,6 +227,10 @@ def main():
         log(f"❌ تعذر تحميل الحسابات؛ تحقق من الأسرار: {error}")
         return 1
     log(f"🚀 تشغيل حصاد | القناة: @{TARGET_CHANNEL} | الحسابات الخمسة بالتوازي")
+    pending = read_lines(LINKS_PATH)
+    if pending:
+        log(f"⏳ معالجة {len(pending)} روابط معلقة في الطابور قبل سحب روابط جديدة.")
+        return run_all_accounts(pending, accounts, state_dir=STATE_DIR)
     links = []
     processed_before_pull = set(read_lines(PROCESSED_PATH))
     fetch_failed = False
