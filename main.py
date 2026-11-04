@@ -23,7 +23,7 @@ os.makedirs(STATE_DIR, exist_ok=True)
 LINKS_PATH = os.path.join(STATE_DIR, "telegram_links.txt")
 PROCESSED_PATH = os.path.join(STATE_DIR, "processed_links.txt")
 TARGET_CHANNEL = "hasadalyoum"
-ACCOUNT_COUNT = 3
+ACCOUNT_COUNT = 5
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
@@ -89,7 +89,7 @@ def pull_once():
         return []
     append_unique(LINKS_PATH, current_batch)
     write_lines(PROCESSED_PATH, list(dict.fromkeys(read_lines(PROCESSED_PATH) + current_batch)))
-    log(f"🆕 عُثر على {len(current_batch)} رابط جديد؛ ستعالجه الحسابات الثلاثة بالتوازي.")
+    log(f"🆕 عُثر على {len(current_batch)} رابط جديد؛ ستعالجه الحسابات الخمسة بالتوازي.")
     return current_batch
 
 
@@ -139,18 +139,18 @@ def _send_account(account, links):
 
 
 def run_all_accounts(links, accounts, state_dir=None, max_links=None):
-    """Submit each link from all configured accounts using three parallel workers."""
+    """Submit each link from all configured accounts using parallel workers."""
     if not links:
         log("💤 لا توجد روابط للتنفيذ.")
         return 0
     selected_links = links if max_links is None else links[:max_links]
-    log(f"🚀 إرسال {len(selected_links)} روابط من الحسابات الثلاثة بالتوازي.")
+    log(f"🚀 إرسال {len(selected_links)} روابط من الحسابات الخمسة بالتوازي.")
     with ThreadPoolExecutor(max_workers=ACCOUNT_COUNT) as pool:
         futures = [pool.submit(_send_account, account, selected_links) for account in accounts]
         account_results = [future.result() for future in futures]
 
     failures = 0
-    # لا نحذف من الطابور إلا الروابط التي بدأتها الحسابات الثلاثة، لتبقى الروابط
+    # لا نحذف من الطابور إلا الروابط التي بدأتها الحسابات الخمسة، لتبقى الروابط
     # التي لم يصل إليها أحد الحسابات بعد توقفه المفاجئ قابلة للاستكمال.
     completed_prefix = min((len(result) for result in account_results), default=0)
     for link in selected_links[:completed_prefix]:
@@ -167,13 +167,13 @@ def run_all_accounts(links, accounts, state_dir=None, max_links=None):
                         failures += status != "ok"
         else:
             failures += sum(status != "ok" for status in statuses)
-        log(f"انتهى الرابط {link}: {sum(status == 'ok' for status in statuses)}/3 نجاحات.")
+        log(f"انتهى الرابط {link}: {sum(status == 'ok' for status in statuses)}/5 نجاحات.")
     remove_from_queue(selected_links[:completed_prefix])
     # لروابط الروابط السابقة نسجل النتائج حتى تظل حدود النجاح/الفشل قائمة.
     for result in account_results:
         if len(result) < len(selected_links):
             failures += 1
-    log(f"اكتمل التشغيل؛ عولجت {completed_prefix} روابط من الحسابات الثلاثة.")
+    log(f"اكتمل التشغيل؛ عولجت {completed_prefix} روابط من الحسابات الخمسة.")
     return 1 if failures else 0
 
 
@@ -216,7 +216,7 @@ def run_previous_links_until_five(accounts, state_dir=None):
         log("💤 لا توجد روابط سابقة مؤهلة للدفع.")
         return 0
     links = eligible[:5]
-    log(f"🔁 إعادة محاولة {len(links)} روابط سابقة بالحسابات الثلاثة بالتوازي.")
+    log(f"🔁 إعادة محاولة {len(links)} روابط سابقة بالحسابات الخمسة بالتوازي.")
     return run_all_accounts(links, accounts, state_dir=state_dir)
 
 
@@ -226,7 +226,7 @@ def main():
     except ValueError as error:
         log(f"❌ تعذر تحميل الحسابات؛ تحقق من الأسرار: {error}")
         return 1
-    log(f"🚀 تشغيل حصاد | القناة: @{TARGET_CHANNEL} | الحسابات الثلاثة بالتوازي")
+    log(f"🚀 تشغيل حصاد | القناة: @{TARGET_CHANNEL} | الحسابات الخمسة بالتوازي")
     links = []
     processed_before_pull = set(read_lines(PROCESSED_PATH))
     fetch_failed = False

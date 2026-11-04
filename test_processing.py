@@ -101,19 +101,19 @@ class BatchProcessingTests(unittest.TestCase):
         self.assertEqual(main.run_browser_send(resumed, fallback), 0)
         self.assertEqual(resumed.calls, [batch[1]])
 
-    def test_previous_links_collect_successes_from_all_three_accounts(self):
+    def test_previous_links_collect_successes_from_all_five_accounts(self):
         link = "https://t.me/hasadalyoum/41"
         with open(os.path.join(self.state, "processed_links.txt"), "w", encoding="utf-8") as file:
             file.write(link + "\n")
-        accounts = [(1, "u1", "p1"), (2, "u2", "p2"), (3, "u3", "p3")]
+        accounts = [(number, f"u{number}", f"p{number}") for number in range(1, 6)]
 
         def all_accounts_succeeded(account, links):
             return [(selected, "ok") for selected in links]
 
         with patch.object(main, "_send_account", side_effect=all_accounts_succeeded) as send:
             self.assertEqual(main.run_previous_links_until_five(accounts, self.state), 0)
-            self.assertEqual(send.call_count, 3)
-            self.assertEqual(load_successes(self.state)[link], 3)
+            self.assertEqual(send.call_count, 5)
+            self.assertEqual(load_successes(self.state)[link], 5)
             self.assertEqual(main.run_previous_links_until_five(accounts, self.state), 0)
             self.assertEqual(load_successes(self.state)[link], 5)
 
